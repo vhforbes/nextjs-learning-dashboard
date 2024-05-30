@@ -5,24 +5,32 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
-enum Status {
-  Pending = 'pending',
-  Paid = 'paid',
-}
-
-const StatusSchema = z.nativeEnum(Status);
+export type State = {
+  errors?: {
+    customerId?: string[];
+    amount?: string[];
+    status?: string[];
+  };
+  message?: string | null;
+};
 
 const InvoiceFormSchema = z.object({
   id: z.string(),
-  customerId: z.string(),
-  amount: z.coerce.number(),
-  status: StatusSchema,
+  customerId: z.string({
+    message: 'Please select a customer.',
+  }),
+  amount: z.coerce
+    .number()
+    .gt(0, { message: 'Please enter an amount greater than $0.' }),
+  status: z.enum(['pending', 'paid'], {
+    message: 'Please select an invoice status.',
+  }),
   date: z.string(),
 });
 
 const CreateInvoice = InvoiceFormSchema.omit({ id: true, date: true });
 
-export async function createInvoice(formData: FormData) {
+export async function createInvoice(prevState: State, formData: FormData) {
   const rawFormData = {
     customerId: formData.get('customerId'),
     amount: formData.get('amount'),
@@ -31,16 +39,36 @@ export async function createInvoice(formData: FormData) {
 
   // When dealing with a bunch of data
   const rawFormData2 = Object.fromEntries(formData.entries());
+  // this comes with additional thinks in the object that broke the submission
+
+  console.log(rawFormData);
+
+  const validatedFields = CreateInvoice.safeParse(rawFormData);
+
+  console.log(validatedFields);
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Missing Fields. Failed to Create Invoice.',
+    };
+  }
 
   const { customerId, amount, status } = CreateInvoice.parse(rawFormData2);
 
   const amountInCents = amount * 100;
   const date = new Date().toISOString().split('T')[0];
 
-  await sql`
-    INSERT INTO invoices (customer_id, amount, status, date)
-    VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
-  `;
+  try {
+    await sql`
+      INSERT INTO invoices (customer_id, amount, status, date)
+      VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
+    `;
+  } catch (error) {
+    return {
+      message: 'Failed to create invoice',
+    };
+  }
 
   revalidatePath('/dashboard/invoices');
   redirect('/dashboard/invoices');
@@ -57,19 +85,30 @@ export async function updateInvoice(id: string, formData: FormData) {
 
   const amountInCents = amount * 100;
 
-  await sql`
-  UPDATE invoices
-  SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
-  WHERE id = ${id}
-  `;
+  try {
+    await sql`
+    UPDATE invoices
+    SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
+    WHERE id = ${id}
+    `;
+  } catch (error) {
+    return {
+      message: 'Failed to update invoice',
+    };
+  }
 
+  // This is because redirect works by throwing an error, which would be caught by the catch block.
   revalidatePath('/dashboard/invoices');
   redirect('/dashboard/invoices');
 }
 
 export async function deleteInvoice(id: string) {
-  await new Promise((resolve) => setTimeout(resolve, 5000));
-
-  await sql`DELETE FROM invoices WHERE id = ${id}`;
-  revalidatePath('/dashboard/invoices');
+  try {
+    await sql`DELETE FROM invoices WHERE id = ${id}`;
+    revalidatePath('/dashboard/invoices');
+  } catch (error) {
+    return {
+      message: 'Failed to delete invoice',
+    };
+  }
 }
