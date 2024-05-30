@@ -1,5 +1,15 @@
-import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+'use client';
+
+import { deleteInvoice } from '@/app/lib/actions';
+import {
+  CogIcon,
+  PencilIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline';
+import clsx from 'clsx';
 import Link from 'next/link';
+import { useFormStatus } from 'react-dom';
 
 export function CreateInvoice() {
   return (
@@ -16,7 +26,7 @@ export function CreateInvoice() {
 export function UpdateInvoice({ id }: { id: string }) {
   return (
     <Link
-      href="/dashboard/invoices"
+      href={`/dashboard/invoices/${id}/edit`}
       className="rounded-md border p-2 hover:bg-gray-100"
     >
       <PencilIcon className="w-5" />
@@ -24,13 +34,32 @@ export function UpdateInvoice({ id }: { id: string }) {
   );
 }
 
-export function DeleteInvoice({ id }: { id: string }) {
+function DeleteButton() {
+  // This pending exists only if the component is inside a <form />
+  const { pending } = useFormStatus();
+
   return (
-    <>
-      <button className="rounded-md border p-2 hover:bg-gray-100">
-        <span className="sr-only">Delete</span>
-        <TrashIcon className="w-5" />
-      </button>
-    </>
+    <button
+      type="submit"
+      className={clsx('className="rounded-md hover:bg-gray-100" border p-2', {
+        'bg-gray-300': pending,
+      })}
+      disabled={pending}
+    >
+      {pending ? <CogIcon className="w-5" /> : <TrashIcon className="w-5" />}
+    </button>
+  );
+}
+
+export function DeleteInvoice({ id }: { id: string }) {
+  // Thats why this pending is never changing, because its not inside a form
+  const { pending } = useFormStatus();
+
+  const deleteInvoiceWithId = deleteInvoice.bind(null, id);
+
+  return (
+    <form action={deleteInvoiceWithId}>
+      <DeleteButton />
+    </form>
   );
 }
