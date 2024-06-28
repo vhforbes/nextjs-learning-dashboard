@@ -10,9 +10,15 @@ import {
 } from './definitions';
 import { formatCurrency } from './utils';
 import { unstable_noStore as noStore } from 'next/cache';
+import { auth } from '@/auth';
 
 export async function fetchRevenue() {
   noStore();
+
+  const session = await auth();
+
+  console.log('session');
+  console.log(session);
   // Add noStore() here to prevent the response from being cached.
   // This is equivalent to in fetch(..., {cache: 'no-store'}).
 
@@ -226,12 +232,27 @@ export async function fetchFilteredCustomers(query: string) {
   }
 }
 
-export async function getUser(email: string) {
-  try {
-    const user = await sql`SELECT * FROM users WHERE email=${email}`;
-    return user.rows[0] as User;
-  } catch (error) {
-    console.error('Failed to fetch user:', error);
-    throw new Error('Failed to fetch user.');
-  }
-}
+// export async function getUser(email: string) {
+//   try {
+//     console.log(email);
+//     const user = await sql`SELECT * FROM users WHERE email=${email}`;
+
+//     // console.log(user);
+//     return user.rows[0] as User;
+//   } catch (error) {
+//     console.error('Failed to fetch user:', error);
+//     throw new Error('Failed to fetch user.');
+//   }
+// }
+
+// export async function getUser(email: string) {
+//   try {
+//     fetch()
+
+//     // console.log(user);
+//     return user.rows[0] as User;
+//   } catch (error) {
+//     console.error('Failed to fetch user:', error);
+//     throw new Error('Failed to fetch user.');
+//   }
+// }
